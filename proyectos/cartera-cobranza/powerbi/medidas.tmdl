@@ -1,0 +1,276 @@
+table Medidas
+
+	measure 'Vto Teórico' = CALCULATE(SUM(VtoTeorico[Valor Cuota]), VtoTeorico[Origen] = "Original")
+		formatString: $#,##0.00
+		displayFolder: Cobrabilidad
+
+	measure 'Cobrado Esperado' = CALCULATE(SUM(VtoTeorico[Cobrado]), VtoTeorico[Origen] = "Original")
+		formatString: $#,##0.00
+		displayFolder: Cobrabilidad
+
+	measure 'Cobrado No Esperado' = CALCULATE(SUM(VtoTeorico[Cobrado]), VtoTeorico[Origen] <> "Original")
+		formatString: $#,##0.00
+		displayFolder: Cobrabilidad
+
+	measure 'Cobrado Total' = [Cobrado Esperado] + [Cobrado No Esperado]
+		formatString: $#,##0.00
+		displayFolder: Cobrabilidad
+
+	measure Eficiencia =
+			// Solo mutuales con la imputación del mes cargada (las que no tienen cobrado todavía no cuentan como 0%)
+			VAR MutualesConCobro = FILTER(VALUES(Mutual[Mutual]), NOT ISBLANK(CALCULATE(SUM(VtoTeorico[Cobrado]), VtoTeorico[Origen] = "Original")))
+			RETURN DIVIDE(CALCULATE([Cobrado Esperado], MutualesConCobro), CALCULATE([Vto Teórico], MutualesConCobro))
+		formatString: 0.0%
+		displayFolder: Cobrabilidad
+
+	measure Performance = AVERAGE(Performance[Performance])
+		formatString: 0.0%
+		displayFolder: Cobrabilidad
+
+	measure Esperado = SUMX(VALUES(Mutual[Mutual]), CALCULATE([Vto Teórico]) * CALCULATE([Performance]))
+		formatString: $#,##0.00
+		displayFolder: Cobrabilidad
+
+	measure Cumplimiento = DIVIDE([Cobrado Esperado], [Esperado])
+		formatString: 0.0%
+		displayFolder: Cobrabilidad
+
+	measure Saldo = [Cobrado Esperado] - [Vto Teórico]
+		formatString: $#,##0.00
+		displayFolder: Cobrabilidad
+
+	measure 'Cobrabilidad %' = [Eficiencia]
+		formatString: 0.0%
+		displayFolder: Cobrabilidad
+
+	measure 'Fecha de Vto (día)' = IF(HASONEVALUE(Mutual[Mutual]), MAX(Resumen_VtoTeorico[Fecha de Vto]))
+		formatString: 0
+		displayFolder: Resumen VtoTeórico
+
+	measure 'Cant. Créditos (Resumen)' = SUM(Resumen_VtoTeorico[Cant. Créditos])
+		formatString: #,##0
+		displayFolder: Resumen VtoTeórico
+
+	measure 'Vto Teórico Total (Resumen)' = SUM(Resumen_VtoTeorico[Vto Teórico Total])
+		formatString: $#,##0.00
+		displayFolder: Resumen VtoTeórico
+
+	measure 'Al día (Resumen)' = SUM(Resumen_VtoTeorico[Al día])
+		formatString: $#,##0.00
+		displayFolder: Resumen VtoTeórico
+
+	measure 'Mora 30 a 60 (Resumen)' = SUM(Resumen_VtoTeorico[Mora 30 a 60])
+		formatString: $#,##0.00
+		displayFolder: Resumen VtoTeórico
+
+	measure 'Mora mayor a 60 (Resumen)' = SUM(Resumen_VtoTeorico[Mora mayor a 60])
+		formatString: $#,##0.00
+		displayFolder: Resumen VtoTeórico
+
+	measure 'Saldo a Cobrar (Resumen)' = SUM(Resumen_VtoTeorico[Saldo a Cobrar])
+		formatString: $#,##0.00
+		displayFolder: Resumen VtoTeórico
+
+	measure 'Part. (Resumen)' = DIVIDE([Vto Teórico Total (Resumen)], CALCULATE([Vto Teórico Total (Resumen)], ALL(Mutual)))
+		formatString: 0.0%
+		displayFolder: Resumen VtoTeórico
+
+	measure 'Esperado (Resumen)' = SUMX(Resumen_VtoTeorico, Resumen_VtoTeorico[Vto Teórico Total] * Resumen_VtoTeorico[Performance])
+		formatString: $#,##0.00
+		displayFolder: Resumen VtoTeórico
+
+	measure 'Performance (Resumen)' = DIVIDE([Esperado (Resumen)], [Vto Teórico Total (Resumen)])
+		formatString: 0.0%
+		displayFolder: Resumen VtoTeórico
+
+	measure 'Cobrado (Resumen)' = SUM(Resumen_VtoTeorico[Cobrado Reportado])
+		formatString: $#,##0.00
+		displayFolder: Resumen VtoTeórico
+
+	measure 'Eficiencia (Resumen)' = DIVIDE([Cobrado (Resumen)], [Vto Teórico con Cobrado (Resumen)])
+		formatString: 0.0%
+		displayFolder: Resumen VtoTeórico
+
+	measure 'Saldo (Resumen)' = IF(ISBLANK([Cobrado (Resumen)]), BLANK(), [Cobrado (Resumen)] - [Vto Teórico con Cobrado (Resumen)])
+		formatString: $#,##0.00
+		displayFolder: Resumen VtoTeórico
+
+	measure 'Cumplimiento (Resumen)' = DIVIDE([Eficiencia (Resumen)], [Performance (Resumen)])
+		formatString: 0.0%
+		displayFolder: Resumen VtoTeórico
+
+	measure 'Casos Mora (Situación)' = CALCULATE(DISTINCTCOUNT(Operaciones[Id_Op]), Operaciones[Estado] = "Mora")
+		formatString: #,##0
+		displayFolder: Mora y situación
+
+	measure 'Casos No Pagaron' = CALCULATE(DISTINCTCOUNT(Operaciones[Id_Op]), Operaciones[Estado] = "Mora", Operaciones[Situacion de pago] = "No pago nada")
+		formatString: #,##0
+		displayFolder: Mora y situación
+
+	measure 'Casos Vienen Pagando (Situación)' = CALCULATE(DISTINCTCOUNT(Operaciones[Id_Op]), Operaciones[Estado] = "Mora", Operaciones[Situacion de pago] = "Pago algo (parcial o total)")
+		formatString: #,##0
+		displayFolder: Mora y situación
+
+	measure '% No Pagaron' = DIVIDE([Casos No Pagaron], [Casos Mora (Situación)])
+		formatString: 0.0%
+		displayFolder: Mora y situación
+
+	measure 'Cuotas Vencidas (Situación)' = CALCULATE(SUM(Operaciones[Cant_Cuotas_Imp_Vencidas]), Operaciones[Estado] = "Mora")
+		formatString: #,##0
+		displayFolder: Mora y situación
+
+	measure 'Monto a Reclamar' = CALCULATE(SUM(Operaciones[Monto a Reclamar]), Operaciones[Estado] = "Mora")
+		formatString: $#,##0.00
+		displayFolder: Mora y situación
+
+	measure 'Control Situacion' = IF([Casos No Pagaron] + [Casos Vienen Pagando (Situación)] = [Casos Mora (Situación)], "OK", "REVISAR")
+		displayFolder: Mora y situación
+
+	measure 'Casos Mora' = CALCULATE(DISTINCTCOUNT(Operaciones[Id_Op]), Operaciones[Dias_de_Mora] >= 30, Operaciones[Cant_Cuotas_Imp_Vencidas] > 0)
+		formatString: #,##0
+		displayFolder: Mora y comportamiento
+
+	measure 'Mora $' = CALCULATE(SUM(Operaciones[Monto Vencido]), Operaciones[Dias_de_Mora] >= 30)
+		formatString: $#,##0.00
+		displayFolder: Mora y comportamiento
+
+	measure 'Cuotas Vencidas' = CALCULATE(SUM(Operaciones[Cant_Cuotas_Imp_Vencidas]), Operaciones[Dias_de_Mora] >= 30)
+		formatString: #,##0
+		displayFolder: Mora y comportamiento
+
+	measure 'Casos Nunca Pagaron' = CALCULATE(DISTINCTCOUNT(Operaciones[Id_Op]), Operaciones[Comportamiento] = "Nunca pagó", Operaciones[Dias_de_Mora] >= 30)
+		formatString: #,##0
+		displayFolder: Mora y comportamiento
+
+	measure 'Casos Dejaron de Pagar' = CALCULATE(DISTINCTCOUNT(Operaciones[Id_Op]), Operaciones[Comportamiento] = "Dejó de pagar")
+		formatString: #,##0
+		displayFolder: Mora y comportamiento
+
+	measure 'Casos No Pagaron Este Mes' = CALCULATE(DISTINCTCOUNT(Operaciones[Id_Op]), Operaciones[Comportamiento] = "No pagó este mes")
+		formatString: #,##0
+		displayFolder: Mora y comportamiento
+
+	measure 'Casos Vienen Pagando' = CALCULATE(DISTINCTCOUNT(Operaciones[Id_Op]), Operaciones[Comportamiento] = "Viene pagando", Operaciones[Dias_de_Mora] >= 30)
+		formatString: #,##0
+		displayFolder: Mora y comportamiento
+
+	measure 'Casos Empezaron a Pagar' =
+			VAR MesAct = MAX(Calendario[Mes])
+			VAR NuncaAntes = CALCULATETABLE(VALUES(Operaciones[Id_Op]), REMOVEFILTERS(Calendario), Operaciones[Mes] = EDATE(MesAct, -1), Operaciones[Comportamiento] = "Nunca pagó")
+			VAR PaganHoy = CALCULATETABLE(VALUES(Operaciones[Id_Op]), Operaciones[Comportamiento] <> "Nunca pagó")
+			RETURN COUNTROWS(INTERSECT(NuncaAntes, PaganHoy))
+		formatString: #,##0
+		displayFolder: Mora y comportamiento
+
+	measure 'Fecha de Corte' = MAX(Operaciones[Fecha de Corte])
+		formatString: dd/mm/yyyy
+		displayFolder: Mora y comportamiento
+
+	measure 'Control Comportamiento' = IF([Casos Nunca Pagaron] + [Casos Dejaron de Pagar] + [Casos No Pagaron Este Mes] + [Casos Vienen Pagando] = [Casos Mora], "OK", "REVISAR")
+		displayFolder: Mora y comportamiento
+
+	measure 'Créditos activos' = CALCULATE(DISTINCTCOUNT(Operaciones[Id_Op]), Operaciones[Estado] <> "Cancelado")
+		formatString: #,##0
+		displayFolder: Salud de la cartera
+
+	measure 'Créditos mora +30' = CALCULATE(DISTINCTCOUNT(Operaciones[Id_Op]), Operaciones[Dias_de_Mora] > 30)
+		formatString: #,##0
+		displayFolder: Salud de la cartera
+
+	measure '% Mora +30' = DIVIDE([Créditos mora +30], [Créditos activos])
+		formatString: 0.0%
+		displayFolder: Salud de la cartera
+
+	measure 'Saldo vencido' = SUM(Operaciones[Imp_Cuotas_Imp_Vencidas])
+		formatString: $#,##0.00
+		displayFolder: Salud de la cartera
+
+	measure 'Saldo total' = SUM(Operaciones[Imp_Cuotas_Imp_V_a V])
+		formatString: $#,##0.00
+		displayFolder: Salud de la cartera
+
+	measure 'Total Vencido' = SUM(Operaciones[Total Vencido])
+		formatString: $#,##0.00
+		displayFolder: Salud de la cartera
+
+	measure 'Cobrado de lo Vencido' = SUM(Operaciones[Cobrado de lo Vencido])
+		formatString: $#,##0.00
+		displayFolder: Salud de la cartera
+
+	measure '% Cobrabilidad' = DIVIDE([Cobrado de lo Vencido], [Total Vencido])
+		formatString: 0.0%
+		displayFolder: Salud de la cartera
+
+	measure '% Mora (monto)' = DIVIDE([Saldo vencido], [Total Vencido])
+		formatString: 0.0%
+		displayFolder: Salud de la cartera
+
+	measure 'Título foto' = "Cartera al " & FORMAT([Fecha de Corte], "dd/mm/yyyy")
+		displayFolder: Textos
+
+	measure 'Casos Pagó' = CALCULATE(DISTINCTCOUNT(Conciliacion_Entidad 5[Id]), Conciliacion_Entidad 5[Resultado] = "Pagó")
+		formatString: #,##0
+		displayFolder: Conciliación Entidad 5
+
+	measure 'Casos No Pagó' = CALCULATE(DISTINCTCOUNT(Conciliacion_Entidad 5[Id]), Conciliacion_Entidad 5[Resultado] = "No pagó")
+		formatString: #,##0
+		displayFolder: Conciliación Entidad 5
+
+	measure 'Monto No Pagó' = CALCULATE(SUM(Conciliacion_Entidad 5[Valor Cuota]), Conciliacion_Entidad 5[Resultado] = "No pagó")
+		formatString: $#,##0.00
+		displayFolder: Conciliación Entidad 5
+
+	measure Originados = DISTINCTCOUNT(FPD[Id])
+		formatString: #,##0
+		displayFolder: FPD
+
+	measure 'Casos FPD' = CALCULATE(DISTINCTCOUNT(FPD[Id]), FPD[Cuotas cobradas] = 0, FPD[Cuotas vencidas] > 0)
+		formatString: #,##0
+		displayFolder: FPD
+
+	measure 'FPD %' = DIVIDE([Casos FPD], [Originados])
+		formatString: 0.0%
+		displayFolder: FPD
+
+	measure 'Pie Mora y situación' = "Fuente: Plenario, corte " & FORMAT([Fecha de Corte], "dd/mm/yyyy") & ". Monto a Reclamar = vencido (Entidad 3 y Entidad 4: vencido + a vencer)."
+		displayFolder: Textos
+
+	measure 'Header salud de la cartera' = SUBSTITUTE([Header Base], "{TITULO}", "Salud de la cartera")
+		displayFolder: Textos
+
+	measure 'Header Base' =
+			"<div style='font-family:Arial,Helvetica,sans-serif;height:86px;box-sizing:border-box;margin:0;" &
+			"background:linear-gradient(90deg,#151E28 0%,#151E28 55%,#0A6B39 100%);border-bottom:4px solid #00BD59;" &
+			"display:flex;align-items:center;justify-content:space-between;padding:0 28px;'>" &
+			"<div style='display:flex;align-items:center;gap:18px;'>" &
+			"<img src='https://ejemplo.com/logo-blanco.png' style='height:40px;'/>" &
+			"<div style='width:3px;height:42px;background:#00BD59;border-radius:2px;'></div>" &
+			"<div><div style='color:#00BD59;font-size:11px;font-weight:700;letter-spacing:2px;'>CARTERA Y COBRANZA</div>" &
+			"<div style='color:#FFFFFF;font-size:24px;font-weight:700;'>{TITULO}</div></div></div>" &
+			"<div style='background:#00BD59;color:#FFFFFF;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:700;'>" &
+			[Título foto] & "</div></div>"
+		displayFolder: Textos
+
+	measure 'Header cobrabilidad' = SUBSTITUTE([Header Base], "{TITULO}", "Cobrabilidad por mutual")
+		displayFolder: Textos
+
+	measure 'Header mora y situacion' = SUBSTITUTE([Header Base], "{TITULO}", "Mora y situación")
+		displayFolder: Textos
+
+	measure 'Header mora y comportamiento' = SUBSTITUTE([Header Base], "{TITULO}", "Mora y comportamiento de pago")
+		displayFolder: Textos
+
+	measure 'Vto Teórico con Cobrado (Resumen)' = SUMX(FILTER(Resumen_VtoTeorico, NOT ISBLANK(Resumen_VtoTeorico[Cobrado Reportado])), Resumen_VtoTeorico[Vto Teórico Total])
+		formatString: $#,##0.00
+		displayFolder: Resumen VtoTeórico
+
+	measure 'Impago +30 días' = CALCULATE(SUM(Operaciones[Imp_Cuotas_Imp_Vencidas]), Operaciones[Dias_de_Mora] > 30)
+		formatString: $#,##0.00
+		displayFolder: Cartera histórica
+
+	measure '% Mora +30 días (monto)' = DIVIDE([Impago +30 días], [Total Vencido])
+		formatString: 0.0%
+		displayFolder: Cartera histórica
+
+	measure 'Header cartera historica' = SUBSTITUTE([Header Base], "{TITULO}", "Cartera histórica")
+		displayFolder: Textos
